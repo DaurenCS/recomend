@@ -12,7 +12,13 @@ import numpy as np
 
 import redis
 
-r = redis.Redis(host="redis", port=6379, db=0, decode_responses=True) 
+r = redis.Redis(
+    host="redis-17009.c8.us-east-1-2.ec2.redns.redis-cloud.com",  
+    port=17009,  
+    password="zd66qejs39E8MbD1QLx3QlLwtH3F7BEB",  # Add password if required
+    db=0,  
+    decode_responses=True  
+)
 
 embedding_dim = 128
 faiss_index_file = "faiss.index"
