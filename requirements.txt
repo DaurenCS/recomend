@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+redis
+sqlalchemy
+psycopg2-binary
+numpy==2.0.2
+faiss-cpu
+pickle-mixin
+typing-extensions
+datetime
+torch==2.0.1
+sentence-transformers
+pydantic
