@@ -7,6 +7,7 @@ from database.database import session
 import pickle
 import os
 import faiss
+import random
 
 import numpy as np
 
@@ -64,7 +65,7 @@ class RecomendationRepository:
         embedding = pickle.loads(profile_vector_record.vector)
         query_vector = np.array([embedding], dtype="float32")
         
-        distances, indices = faiss_index.search(query_vector, top_k * 10)
+        distances, indices = faiss_index.search(query_vector, top_k * 3)
 
         user_faiss_pos = profile_vector_record.faiss_index_position
         recommended_positions = [int(idx) for idx in indices[0] if idx != user_faiss_pos] 
@@ -86,10 +87,12 @@ class RecomendationRepository:
     ]
         
         if not recommended_user_ids:
+            r.delete(f"viewed:{user_id}")
             return []
 
         r.sadd(f"viewed:{user_id}", *map(str, recommended_user_ids))
 
+        random.shuffle(recommended_user_ids)
         return self.db.query(mdl.User).filter(mdl.User.id.in_(recommended_user_ids)).all()
 
     
