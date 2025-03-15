@@ -3,9 +3,15 @@ from fastapi import FastAPI, HTTPException, Depends
 from app.repositories.Repository import *
 from app.services.generateEmbedding import *
 from app.services.embeddingService import EmbeddingService, get_embedding_service
+import app.models.models as mdl
+from fastapi import File, UploadFile
+import shutil
+from fastapi.responses import FileResponse
 
+UPLOAD_DIR = "uploads/"
 
-
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 app = FastAPI()
 
@@ -44,3 +50,44 @@ def get_user(user_id: int, service: UserRepository = Depends(get_user_repository
     return sch.User.model_validate(user)
 
 
+@app.get("/my_posts")
+def get_my_posts(current_user: mdl.User = Depends(get_current_user),
+                 service: PostRepository = Depends(get_post_repository)):
+    posts = service.get_my_posts(current_user.id)
+    return [sch.Post.model_validate(post) for post in posts]
+
+@app.get('/news')
+def get_news(current_user: mdl.User = Depends(get_current_user), service: PostRepository = Depends(get_post_repository)):
+    news = service.get_news(current_user.id)
+    
+    return news
+
+
+@app.post("/posts")
+async def create_posts(post_data: sch.PostCreate,
+                       current_user: mdl.User = Depends(get_current_user), 
+                       service: PostRepository = Depends(get_post_repository)):
+    
+    return service.create_post(current_user.id, post_data )
+    
+@app.post("/posts/{post_id}/upload")
+async def upload_file(post_id: int, images: List[UploadFile] = File(...),
+                      service: PostRepository = Depends(get_post_repository)):
+    image_paths = []
+    for image in images:
+        file_path = os.path.join(UPLOAD_DIR, image.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+        image_paths.append(file_path)
+    return service.create_image(post_id, image_paths)
+    
+
+    
+@app.get("/posts/{post_id}/images", response_model=List[sch.PostImage])
+def get_post_images(post_id: int, service: PostRepository = Depends(get_post_repository)):
+    return service.get_post_images(post_id)
+
+@app.get("/images/{filename}")
+async def get_image(filename: str):
+    return FileResponse(f"uploads/{filename}")
+    

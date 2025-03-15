@@ -1,13 +1,17 @@
-from fastapi import Depends
+from fastapi import Depends,  Security,  Request, HTTPException
 import app.models.models as mdl
-from fastapi import HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from database.database import session
 import pickle
 import os
 import faiss
+import app.models.schemas as sch
 import random
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer
+import jwt
+from jose import JWTError
+from typing import List
+
 
 import numpy as np
 
@@ -20,6 +24,12 @@ r = redis.Redis(
     db=0,  
     decode_responses=True  
 )
+
+SECRET_KEY = "IP03O5Ekg91g5jw=="
+ALGORITHM = "HS256"
+security = HTTPBearer()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 embedding_dim = 128
 faiss_index_file = "faiss.index"
@@ -97,6 +107,61 @@ class RecomendationRepository:
 
     
 
+class PostRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_my_posts(self, user_id: int):
+        posts = self.db.query(mdl.Post).filter(mdl.Post.user_id == user_id).all()
+        
+        result = []
+        for post in posts:
+            images = self.db.query(mdl.PostImage.image).filter(mdl.PostImage.post_id == post.id).all()
+            image_urls = [img[0] for img in images]  
+            result.append({
+                "id": post.id,
+                "user_id": post.user_id,
+                "text": post.text,
+                "posted_at": post.posted_at,
+                "images":  image_urls
+            })
+        
+        return result
+    
+    def get_news(self, user_id: int):
+        connections = (
+            self.db.query(mdl.Connection)
+            .filter(mdl.Connection.user_id == user_id, mdl.Connection.status == "accepted")
+            .all()
+        )
+
+        target_ids = [connection.target_id for connection in connections]
+
+        if not target_ids:
+            return "Please add some friends"
+
+        news = self.db.query(mdl.Post).filter(mdl.Post.user_id.in_(target_ids)).all()
+
+        if not news:
+            return "There are no news"
+        
+        return news
+    
+    def create_post(self, user_id: int, post_data: sch.PostCreate):
+        post = mdl.Post(user_id = user_id, text=post_data.text)
+        self.db.add(post)
+        return post.id
+    
+    def create_image(self, post_id: int, images: List[str] = None):
+        for path in images:
+            post_image = mdl.PostImage(post_id=post_id, image=path)
+            self.db.add(post_image)
+        return "Images successfully add"
+
+    def get_post_images(self, post_id: int):
+        return self.db.query(mdl.PostImage).filter(mdl.PostImage.post_id == post_id).all()
+
+
 def get_db():
     try:
         yield session
@@ -114,3 +179,28 @@ def get_embedding_repository(db: Session = Depends(get_db)):
 
 def get_recomendation_repository(db: Session = Depends(get_db)):
     return RecomendationRepository(db)
+
+def get_post_repository(db: Session = Depends(get_db)):
+    return PostRepository(db)
+
+
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    auth_header = request.headers.get("Authorization")
+    
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[2]
+    else:
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("userID")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="User Not Found")
+        user = db.query(mdl.User).filter(mdl.User.id == user_id).first()
+        if user is None:
+            raise HTTPException(status_code=401, detail="User not Found")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+  
