@@ -9,7 +9,7 @@ import app.models.schemas as sch
 import random
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer
 import jwt
-from jose import JWTError
+from jose import JWTError, ExpiredSignatureError
 from typing import List
 
 
@@ -136,6 +136,7 @@ class PostRepository:
         )
 
         target_ids = [connection.target_id for connection in connections]
+        target_ids.append(user_id) 
 
         if not target_ids:
             return "Please add some friends"
@@ -152,7 +153,19 @@ class PostRepository:
         if not news:
             return "There are no news"
         
-        return news
+        result = []
+        for post in news:
+            images = self.db.query(mdl.PostImage.image).filter(mdl.PostImage.post_id == post.id).all()
+            image_urls = [img[0] for img in images]  
+            result.append({
+                "id": post.id,
+                "user_id": post.user_id,
+                "text": post.text,
+                "posted_at": post.posted_at,
+                "images":  image_urls
+            })
+
+        return result
     
     def create_post(self, user_id: int, post_data: sch.PostCreate):
         post = mdl.Post(user_id = user_id, text=post_data.text)
@@ -208,6 +221,9 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         if user is None:
             raise HTTPException(status_code=401, detail="User not Found")
         return user
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired, please login again")
+
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
   

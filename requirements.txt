@@ -11,6 +11,6 @@ datetime
 torch==2.0.1
 sentence-transformers
 pydantic
-jwt
+pyjwt
 python-jose
 python-multipart
