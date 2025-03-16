@@ -13,6 +13,7 @@ from jose import JWTError, ExpiredSignatureError
 from typing import List
 
 
+
 import numpy as np
 
 import redis
@@ -172,6 +173,17 @@ class PostRepository:
         self.db.add(post)
         return post.id
     
+    def delete_post(self, user_id: int, post_id: int):
+        post = self.db.query(mdl.Post).filter(mdl.Post.user_id == user_id).filter(mdl.Post.id == post_id).first()
+
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        
+        self.db.delete(post)
+
+        return post_id
+
+    
     def create_image(self, post_id: int, images: List[str] = None):
         for path in images:
             post_image = mdl.PostImage(post_id=post_id, image=path)
@@ -180,6 +192,42 @@ class PostRepository:
 
     def get_post_images(self, post_id: int):
         return self.db.query(mdl.PostImage).filter(mdl.PostImage.post_id == post_id).all()
+
+
+class OrganizationRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_organizations(self):
+        return self.db.query(mdl.Organization).all()
+    
+    def get_organization(self, organization_id: int):
+        return self.db.query(mdl.Organization).filter(mdl.Organization.id == organization_id).first()
+    
+    def create_organization(self, organization_data: sch.Organization):
+       
+            organization = mdl.Organization(
+                name=organization_data.name,
+                image= organization_data.image,
+                slogan=organization_data.slogan,
+                description=organization_data.description,
+                year=organization_data.year,
+                president_id=organization_data.president_id
+            )
+            self.db.add(organization)
+
+            return organization
+        
+        # except Exception as e:
+        #     raise HTTPException(status_code=500, detail = "Internal Server error" )
+
+
+        
+
+
+
+
+
 
 
 def get_db():
@@ -203,6 +251,8 @@ def get_recomendation_repository(db: Session = Depends(get_db)):
 def get_post_repository(db: Session = Depends(get_db)):
     return PostRepository(db)
 
+def get_organization_repository(db: Session = Depends(get_db)):
+    return OrganizationRepository(db)
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     auth_header = request.headers.get("Authorization")
@@ -221,9 +271,9 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         if user is None:
             raise HTTPException(status_code=401, detail="User not Found")
         return user
-    except ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired, please login again")
-
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Token has expired, please login again")
+    
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
   

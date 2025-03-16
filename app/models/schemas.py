@@ -39,5 +39,21 @@ class Post(PostBase):
     posted_at: datetime
     images: List[str] = []
 
+class CreateOrganization(Base):
+    name: str
+    slogan: str
+    description: str
+    image: str
+    year: int
+    president_id: int
+
+class Organization(Base):
+    id: int
+    name: str
+    image: str
+    slogan: str
+    description: str
+    year: int
+    president_id: int
 
 

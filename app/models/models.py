@@ -75,9 +75,9 @@ class Organization(Base):
     id: Mapped[_id]
     name = Column(String, index=True)
     image: Mapped[str] = mapped_column(String, nullable=True)
-    sloagan: Mapped[str]
+    slogan: Mapped[str]
     description: Mapped[str]
-    created_at = Column(DateTime, default=func.now())
+    year = Column(Integer, nullable=True)
     president_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
 
     president: Mapped['User'] = relationship(back_populates='organization')

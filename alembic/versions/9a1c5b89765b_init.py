@@ -23,9 +23,9 @@ def upgrade() -> None:
     sa.Column('name', sa.String(), nullable=True),
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('image', sa.String(), nullable=True),
-    sa.Column('sloagan', sa.String(), nullable=False),
+    sa.Column('slogan', sa.String(), nullable=False),
     sa.Column('description', sa.String(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('year', sa.Integer(), nullable=True),
     sa.Column('president_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['president_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
