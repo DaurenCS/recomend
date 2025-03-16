@@ -12,4 +12,4 @@ torch==2.0.1
 sentence-transformers
 pydantic
 jwt
-jose
+python-jose
