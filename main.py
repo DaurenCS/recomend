@@ -15,6 +15,10 @@ if not os.path.exists(UPLOAD_DIR):
 
 app = FastAPI()
 
+@app.get("/")
+def root():
+    return {"message": "API is running"}
+
 @app.post("/generate_embedding/{user_id}")
 def generate_and_store_embedding(user_id: int, 
                                     service: EmbeddingService = Depends(get_embedding_service),
