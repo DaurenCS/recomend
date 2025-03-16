@@ -128,7 +128,7 @@ class PostRepository:
         
         return result
     
-    def get_news(self, user_id: int):
+    def get_news(self, user_id: int, page: int = 1, limit: int = 5):
         connections = (
             self.db.query(mdl.Connection)
             .filter(mdl.Connection.user_id == user_id, mdl.Connection.status == "accepted")
@@ -140,7 +140,14 @@ class PostRepository:
         if not target_ids:
             return "Please add some friends"
 
-        news = self.db.query(mdl.Post).filter(mdl.Post.user_id.in_(target_ids)).all()
+        news = (
+            self.db.query(mdl.Post)
+            .filter(mdl.Post.user_id.in_(target_ids))
+            .order_by(mdl.Post.posted_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
 
         if not news:
             return "There are no news"

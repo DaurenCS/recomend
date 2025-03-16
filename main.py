@@ -57,10 +57,11 @@ def get_my_posts(current_user: mdl.User = Depends(get_current_user),
     return [sch.Post.model_validate(post) for post in posts]
 
 @app.get('/news')
-def get_news(current_user: mdl.User = Depends(get_current_user), service: PostRepository = Depends(get_post_repository)):
-    news = service.get_news(current_user.id)
+def get_news(current_user: mdl.User = Depends(get_current_user), 
+            service: PostRepository = Depends(get_post_repository), page: int = 1, limit: int = 5):
+    news = service.get_news(current_user.id, page, limit)
     
-    return news
+    return [sch.Post.model_validate(post) for post in news]
 
 
 @app.post("/posts")
