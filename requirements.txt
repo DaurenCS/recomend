@@ -13,3 +13,4 @@ sentence-transformers
 pydantic
 jwt
 python-jose
+python-multipart
