@@ -3,12 +3,14 @@ uvicorn
 redis
 sqlalchemy
 psycopg2-binary
-numpy==2.0.2
+numpy==1.24.3 
 faiss-cpu
 pickle-mixin
 typing-extensions
 datetime
 torch==2.0.1
+torchvision==0.15.2
+torchaudio==2.0.2
 sentence-transformers
 pydantic
 pyjwt

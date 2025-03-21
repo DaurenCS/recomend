@@ -43,9 +43,11 @@ class Post(Base):
 
     id: Mapped[_id]
     posted_at  = mapped_column(DateTime, default=func.now())
-    user_id : Mapped[int] = mapped_column(ForeignKey('users.id'))
+    user_id : Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=True)
     text: Mapped[str] = mapped_column(String, nullable=True)
-
+    organization_id: Mapped[int] = mapped_column(ForeignKey('organizations.id'), nullable=True)
+    
+    organization: Mapped['Organization'] = relationship(back_populates='post')
     post_images: Mapped['PostImage'] = relationship(back_populates='post', cascade="all, delete-orphan")
     user: Mapped['User'] = relationship(back_populates='posts')
 
@@ -82,10 +84,11 @@ class Organization(Base):
 
     president: Mapped['User'] = relationship(back_populates='organization')
     events: Mapped['Event'] = relationship(back_populates='organization')
+    post: Mapped['Post'] = relationship(back_populates='organization')
 
 
 class Event(Base):
-    __tablename__ = "events"
+    __tablename__ = "organization_events"
 
     id: Mapped[_id]
     name: Mapped[str]

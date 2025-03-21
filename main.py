@@ -107,10 +107,13 @@ async def get_image(filename: str):
 async def get_organizations(service: OrganizationRepository = Depends(get_organization_repository)):
     return service.get_organizations()
 
-@app.post("/organizations")
-async def create_organization(organization_data: sch.CreateOrganization, 
-                              service: OrganizationRepository = Depends(get_organization_repository)):
-    
-    
-    return service.create_organization(organization_data)
+@app.get("organization/{organization_id}")
+async def get_organization(organization_id: int, service: OrganizationRepository = Depends(get_organization_repository)):
+    return service.get_organization(organization_id)
+
+
+# @app.post("/organizations")
+# async def create_organization(organization_data: sch.CreateOrganization, 
+#                               service: OrganizationRepository = Depends(get_organization_repository)):
+#     return service.create_organization(organization_data)
     
