@@ -5,6 +5,7 @@ from database.database import session
 import pickle
 import os
 import faiss
+from collections import defaultdict
 import app.models.schemas as sch
 import random
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer
@@ -204,6 +205,36 @@ class OrganizationRepository:
     def get_organization(self, organization_id: int):
         return self.db.query(mdl.Organization).filter(mdl.Organization.id == organization_id).first()
     
+    def get_organizations_posts(self):
+        return self.db.query(mdl.Post).filter(mdl.Post.organization_id.isnot(None)).all()
+
+    def get_organization_posts(self, organization_id):
+        return (
+            self.db.query(mdl.Post).filter(mdl.Post.organization_id == organization_id).first()
+        )
+    
+    def create_organization_posts(self, organization_id, president_id, post_data: sch.PostCreate):
+        organization = self.db.query(mdl.Organization).filter(mdl.Organization.id == organization_id).first()
+        if organization.president_id == president_id:
+            post = mdl.Post(organization_id = organization_id, text=post_data.text)
+            self.db.add(post)
+            self.db.commit()
+            self.db.refresh(post)
+            return post
+        return HTTPException(status_code=401, detail="Unauthorized")
+        
+    def delete_organization_post(self, post_id, president_id):
+        post = self.db.query(mdl.Post).filter(mdl.Post.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        
+        organization = self.db.query(mdl.Organization).filter(mdl.Organization.id == post.organization_id).first()
+        if organization.president_id == president_id:
+            self.db.delete(post)
+            return post_id
+        
+        return HTTPException(status_code=401, detail="Unauthorized")
+    
     def create_organization(self, organization_data: sch.Organization):
        
             organization = mdl.Organization(
@@ -224,8 +255,21 @@ class OrganizationRepository:
 
         
 
+class EventsRepository:
+    def __init__(self, db: Session):
+        self.db = db
 
+    def get_events(self):
+        events = self.db.query(mdl.Event).order_by(mdl.Event.date).all()
+        grouped_events = defaultdict(list)
 
+        for event in events:
+            event_day = event.date.strftime("%Y-%m-%d") 
+            grouped_events[event_day].append(event)
+        return grouped_events
+
+        
+    
 
 
 
@@ -253,6 +297,9 @@ def get_post_repository(db: Session = Depends(get_db)):
 
 def get_organization_repository(db: Session = Depends(get_db)):
     return OrganizationRepository(db)
+
+def get_events_repository(db: Session = Depends(get_db)):
+    return EventsRepository(db)
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     auth_header = request.headers.get("Authorization")

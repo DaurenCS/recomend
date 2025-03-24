@@ -8,7 +8,7 @@ faiss-cpu
 pickle-mixin
 typing-extensions
 datetime
-torch==2.0.1
+torch
 torchvision==0.15.2
 torchaudio==2.0.2
 sentence-transformers

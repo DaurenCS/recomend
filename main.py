@@ -107,9 +107,38 @@ async def get_image(filename: str):
 async def get_organizations(service: OrganizationRepository = Depends(get_organization_repository)):
     return service.get_organizations()
 
-@app.get("organization/{organization_id}")
+
+@app.get("/organization/{organization_id}")
 async def get_organization(organization_id: int, service: OrganizationRepository = Depends(get_organization_repository)):
     return service.get_organization(organization_id)
+
+@app.get("/organization/{organization_id}/posts")
+def get_organization_posts(organization_id: int, service: OrganizationRepository = Depends(get_organization_repository)):
+    return service.get_organization_posts(organization_id)
+
+@app.post("/organization/posts")
+def create_organization_post(organization_id: int, 
+                             post_data: sch.PostCreate,
+                             service: OrganizationRepository = Depends(get_organization_repository),
+                             current_user: mdl.User = Depends(get_current_user)):
+    
+    return service.create_organization_posts(organization_id, current_user.id, post_data)
+
+@app.get("/organizations/posts")
+def get_organizations_post(service: OrganizationRepository = Depends(get_organization_repository)):
+    return service.get_organizations_posts()
+
+
+@app.delete("/organization/posts/{post_id}")
+def delete_organization_post(post_id:int,
+                             service: OrganizationRepository = Depends(get_organization_repository),
+                             current_user: mdl.User = Depends(get_current_user)):
+    return service.delete_organization_post(post_id, current_user.id)
+
+
+@app.get("/events")
+def get_events(service: EventsRepository = Depends(get_events_repository)):
+    return service.get_events()
 
 
 # @app.post("/organizations")
