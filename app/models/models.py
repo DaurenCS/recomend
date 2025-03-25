@@ -67,7 +67,7 @@ class Connection(Base):
     id: Mapped[_id]
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     target_id : Mapped[int] = mapped_column(ForeignKey('users.id'))
-    status: Mapped[str] 
+ 
 
     # user: Mapped['User'] = relationship(back_populates='connection')
 

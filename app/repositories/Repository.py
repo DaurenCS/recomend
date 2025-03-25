@@ -133,7 +133,7 @@ class PostRepository:
     def get_news(self, user_id: int, page: int = 1, limit: int = 5):
         connections = (
             self.db.query(mdl.Connection)
-            .filter(mdl.Connection.user_id == user_id, mdl.Connection.status == "accepted")
+            .filter(mdl.Connection.user_id == user_id)
             .all()
         )
 
