@@ -169,6 +169,19 @@ class PostRepository:
 
         return result
     
+    def get_user_posts(self, user_id, current_user_id):
+        connections = (
+            self.db.query(mdl.Connection)
+            .filter(mdl.Connection.user_id == current_user_id, mdl.Connection.target_id == user_id)
+            .first()
+        )
+
+        if not connections:
+            return HTTPException(status_code=401, detail="Unauthorized")
+
+        return self.get_my_posts(user_id)
+
+    
     def create_post(self, user_id: int, post_data: sch.PostCreate):
         post = mdl.Post(user_id = user_id, text=post_data.text)
         self.db.add(post)
@@ -259,14 +272,35 @@ class EventsRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_events(self):
-        events = self.db.query(mdl.Event).order_by(mdl.Event.date).all()
+    def results(self, events):
         grouped_events = defaultdict(list)
 
         for event in events:
             event_day = event.date.strftime("%Y-%m-%d") 
             grouped_events[event_day].append(event)
         return grouped_events
+
+    def get_events(self):
+        events = self.db.query(mdl.Event).order_by(mdl.Event.date).all()
+        return self.results(events)
+    
+    def get_organization_events(self, organization_id):
+        events = self.db.query(mdl.Event).filter(mdl.Event.organization_id == organization_id).all()
+
+        return self.results(events)
+    
+    def delete_event(self, president_id, event_id):
+        event = self.db.query(mdl.Event).filter(mdl.Event.id == event_id).first()
+        if not event:
+            return HTTPException(404, detail={"Event not found"})
+        
+        organization = self.db.query(mdl.Organization).filter(mdl.Organization.id == event.organization_id).first()
+
+        if organization.president_id == president_id:
+            self.db.delete(event)
+            return event.id
+        
+        return HTTPException(status_code=401, detail="Unauthorized") 
 
         
     

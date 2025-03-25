@@ -53,6 +53,12 @@ def get_user(user_id: int, service: UserRepository = Depends(get_user_repository
     user = service.get_user(user_id)
     return sch.User.model_validate(user)
 
+@app.get("/users/{user_id}/posts")
+def get_user_posts(user_id: int, service: PostRepository = Depends(get_post_repository), 
+                   current_user: mdl.User = Depends(get_current_user)):
+    
+    return service.get_user_posts(user_id, current_user.id)
+
 
 @app.get('/news')
 def get_news(current_user: mdl.User = Depends(get_current_user), 
@@ -116,6 +122,10 @@ async def get_organization(organization_id: int, service: OrganizationRepository
 def get_organization_posts(organization_id: int, service: OrganizationRepository = Depends(get_organization_repository)):
     return service.get_organization_posts(organization_id)
 
+@app.get("/organization/{organization_id}/events")
+def get_organization_events(organization_id: int , service: EventsRepository = Depends(get_events_repository)):
+    return service.get_organization_events(organization_id)
+
 @app.post("/organization/posts")
 def create_organization_post(organization_id: int, 
                              post_data: sch.PostCreate,
@@ -139,6 +149,13 @@ def delete_organization_post(post_id:int,
 @app.get("/events")
 def get_events(service: EventsRepository = Depends(get_events_repository)):
     return service.get_events()
+
+@app.delete("/event/{event_id}")
+def delete_event(event_id: int, service: EventsRepository = Depends(get_events_repository),
+                 current_user: mdl.User = Depends(get_current_user)):
+    return service.delete_event(current_user.id, event_id)
+
+
 
 
 # @app.post("/organizations")
