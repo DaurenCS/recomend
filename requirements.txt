@@ -1,3 +1,11 @@
+--index-url https://download.pytorch.org/whl/cpu
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0
+
+
+--index-url https://pypi.org/simple
+
 fastapi
 uvicorn
 redis
@@ -8,7 +16,6 @@ faiss-cpu
 pickle-mixin
 typing-extensions
 datetime
-torch
 sentence-transformers
 pydantic
 pyjwt
