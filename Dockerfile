@@ -1,28 +1,31 @@
 # Используем официальный образ Python
 FROM python:3.10
 
-# Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Устанавливаем только нужные системные зависимости
+# Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    wget \
+    curl \
+    unzip \
     libopenblas-dev \
     libomp-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем файл зависимостей
+# Копируем только файл зависимостей
 COPY requirements.txt .
 
 # Устанавливаем pip и зависимости
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir numpy==1.24.3 && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt --index-url https://download.pytorch.org/whl/cpu
 
 # Копируем весь проект
 COPY . .
 
-# Открываем порт
-EXPOSE 8000
+EXPOSE 10000
 
-# Запускаем FastAPI-приложение
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENV PORT=10000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]

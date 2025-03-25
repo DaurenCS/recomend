@@ -4,9 +4,11 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "10000:10000"
     depends_on:
       - redis
+    environment:
+      - PORT=10000
 
   redis:
     image: redis:latest
