@@ -4,23 +4,18 @@ FROM python:3.10
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Устанавливаем системные зависимости для корректной работы faiss и torch
+# Устанавливаем только нужные системные зависимости
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    wget \
-    curl \
-    unzip \
     libopenblas-dev \
     libomp-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем только файл зависимостей, чтобы использовать кеш Docker
+# Копируем файл зависимостей
 COPY requirements.txt .
 
-# Устанавливаем pip и сначала numpy, затем остальные зависимости
+# Устанавливаем pip и зависимости
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir numpy==2.0.2 && \
+    pip install --no-cache-dir numpy==1.24.3 && \
     pip install --no-cache-dir -r requirements.txt
 
 # Копируем весь проект

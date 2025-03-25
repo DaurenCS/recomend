@@ -3,7 +3,7 @@ uvicorn
 redis
 sqlalchemy
 psycopg2-binary
-numpy==1.24.3 
+numpy==1.24.3
 faiss-cpu
 pickle-mixin
 typing-extensions
