@@ -145,6 +145,13 @@ def delete_organization_post(post_id:int,
                              current_user: mdl.User = Depends(get_current_user)):
     return service.delete_organization_post(post_id, current_user.id)
 
+@app.post("/events")
+def create_events(organization_id: int,
+                  event_data: sch.EventCreate,
+                  service: EventsRepository = Depends(get_events_repository),
+                  current_user: mdl.User = Depends(get_current_user),     
+                  ):
+    return service.create_event(current_user.id, organization_id, event_data)
 
 @app.get("/events")
 def get_events(service: EventsRepository = Depends(get_events_repository)):

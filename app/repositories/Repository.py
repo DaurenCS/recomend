@@ -193,6 +193,7 @@ class PostRepository:
         if not post:
             raise HTTPException(status_code=404, detail="Post not found")
         
+        self.db.query(mdl.PostImage).filter(mdl.PostImage.post_id == post_id).delete()
         self.db.delete(post)
 
         return post_id
@@ -279,6 +280,34 @@ class EventsRepository:
             event_day = event.date.strftime("%Y-%m-%d") 
             grouped_events[event_day].append(event)
         return grouped_events
+    
+    def create_event(self, president_id, organization_id, event_data: sch.EventCreate):
+        organization = self.db.query(mdl.Organization).filter(mdl.Organization.id == organization_id).first()
+
+        if not organization:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+        if organization.president_id != president_id:
+            raise HTTPException(status_code=403, detail="You are not the president of this organization")
+
+        event = mdl.Event(
+            name=event_data.name,
+            organization_id=organization_id,
+            date=event_data.date,
+            location=event_data.location,
+            image=event_data.image,
+            description=event_data.description,
+            price=event_data.price,
+            additional=event_data.additional
+        )
+        
+        self.db.add(event)
+        self.db.commit()
+        self.db.refresh(event)
+        return event
+
+
+        
 
     def get_events(self):
         events = self.db.query(mdl.Event).order_by(mdl.Event.date).all()

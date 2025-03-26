@@ -48,17 +48,17 @@ class Post(Base):
     organization_id: Mapped[int] = mapped_column(ForeignKey('organizations.id'), nullable=True)
     
     organization: Mapped['Organization'] = relationship(back_populates='post')
-    post_images: Mapped['PostImage'] = relationship(back_populates='post', cascade="all, delete-orphan")
+    post_images: Mapped['PostImage'] = relationship(back_populates='post', cascade="all, delete-orphan", passive_deletes=True)
     user: Mapped['User'] = relationship(back_populates='posts')
 
 class PostImage(Base):
     __tablename__ = "post_images"
     
     id: Mapped[_id]
-    post_id : Mapped[int] = mapped_column(ForeignKey('posts.id'))
+    post_id : Mapped[int] = mapped_column(ForeignKey('posts.id', ondelete='CASCADE'))
     image : Mapped[str] = mapped_column(String, nullable=True)
 
-    post: Mapped['Post'] = relationship(back_populates='post_images')
+    post: Mapped['Post'] = relationship(back_populates='post_images',  passive_deletes=True)
 
 
 class Connection(Base):

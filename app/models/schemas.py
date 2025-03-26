@@ -56,4 +56,16 @@ class Organization(Base):
     year: int
     president_id: int
 
+class EventCreate(Base):
+    name: str
+    organization_id: int
+    date: datetime
+    location: str
+    image: Optional[str] = None
+    description: str
+    price: int
+    additional: str
 
+class EventResponse(EventCreate):
+    id: int
+    created_at: datetime
