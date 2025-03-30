@@ -1,9 +1,11 @@
 from sqlalchemy import  Column, Integer, String
 from database.database import Base
-from typing import Annotated
+from typing import Annotated, List
+import uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime, func, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime, func, ForeignKey, UniqueConstraint
 from datetime import date
+from sqlalchemy.dialects.postgresql import UUID
 
 _id = Annotated[int, mapped_column(Integer, primary_key=True)]
 
@@ -18,9 +20,10 @@ class User(Base):
     gender: Mapped[str] = mapped_column(String, nullable=False)
     bio: Mapped[str] = mapped_column(String, nullable=True)
     birthday =  mapped_column(DateTime)
-
+    image_uuid: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True, default=uuid.uuid4)
     posts: Mapped['Post'] = relationship(back_populates='user', cascade="all, delete-orphan")
     organization: Mapped['Organization'] = relationship(back_populates='president')
+    likes: Mapped['Like'] = relationship(back_populates="user", cascade="all, delete-orphan")
     # connection: Mapped['Connection'] = relationship(back_populates='user')
 
     @property
@@ -48,8 +51,9 @@ class Post(Base):
     organization_id: Mapped[int] = mapped_column(ForeignKey('organizations.id'), nullable=True)
     
     organization: Mapped['Organization'] = relationship(back_populates='post')
-    post_images: Mapped['PostImage'] = relationship(back_populates='post', cascade="all, delete-orphan", passive_deletes=True)
+    post_images: Mapped[List['PostImage']] = relationship(back_populates='post', cascade="all, delete-orphan", passive_deletes=True, lazy="joined")
     user: Mapped['User'] = relationship(back_populates='posts')
+    likes: Mapped[List['Like']] = relationship(back_populates="post", cascade="all, delete-orphan")
 
 class PostImage(Base):
     __tablename__ = "post_images"
@@ -104,6 +108,16 @@ class Event(Base):
     organization: Mapped['Organization'] = relationship(back_populates='events')
 
 
+class Like(Base):
+    __tablename__ = "likes"
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="likes")
+    post: Mapped["Post"] = relationship(back_populates="likes")
+    
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="unique_user_post_like"),)
 
 

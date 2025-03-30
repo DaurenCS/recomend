@@ -38,6 +38,7 @@ class Post(PostBase):
     user_id: int
     posted_at: datetime
     images: List[str] = []
+    likes: int
 
 class CreateOrganization(Base):
     name: str
@@ -69,3 +70,6 @@ class EventCreate(Base):
 class EventResponse(EventCreate):
     id: int
     created_at: datetime
+
+class Like(Base):
+    post_id: int

@@ -6,7 +6,11 @@ from app.services.embeddingService import EmbeddingService, get_embedding_servic
 import app.models.models as mdl
 from fastapi import File, UploadFile
 import shutil
+import time
 from fastapi.responses import FileResponse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 UPLOAD_DIR = "uploads/"
 
@@ -65,13 +69,13 @@ def get_news(current_user: mdl.User = Depends(get_current_user),
             service: PostRepository = Depends(get_post_repository), page: int = 1, limit: int = 5):
     news = service.get_news(current_user.id, page, limit)
     
-    return [sch.Post.model_validate(post) for post in news]
+    return news
 
 @app.get("/posts")
 def get_my_posts(current_user: mdl.User = Depends(get_current_user),
                  service: PostRepository = Depends(get_post_repository)):
-    posts = service.get_my_posts(current_user.id)
-    return [sch.Post.model_validate(post) for post in posts]
+    posts = service.get_posts(current_user.id)
+    return posts
 
 @app.post("/posts")
 async def create_posts(post_data: sch.PostCreate,
@@ -89,14 +93,17 @@ async def delete_post(post_id: int,
     
 @app.post("/posts/{post_id}/upload")
 async def upload_file(post_id: int, images: List[UploadFile] = File(...),
+                      curren_user: mdl.User = Depends(get_current_user),
                       service: PostRepository = Depends(get_post_repository)):
     image_paths = []
     for image in images:
-        file_path = os.path.join(UPLOAD_DIR, image.filename)
+        timestamp = int(time.time())  
+        filename = f"{timestamp}_{image.filename}"
+        file_path = os.path.join(UPLOAD_DIR, filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
         image_paths.append(file_path)
-    return service.create_image(post_id, image_paths)
+    return service.create_image(post_id, curren_user.id,image_paths,)
 
 
     
@@ -104,7 +111,7 @@ async def upload_file(post_id: int, images: List[UploadFile] = File(...),
 def get_post_images(post_id: int, service: PostRepository = Depends(get_post_repository)):
     return service.get_post_images(post_id)
 
-@app.get("/images/{filename}")
+@app.get("/uploads/{filename}")
 async def get_image(filename: str):
     return FileResponse(f"uploads/{filename}")
 
@@ -162,7 +169,12 @@ def delete_event(event_id: int, service: EventsRepository = Depends(get_events_r
                  current_user: mdl.User = Depends(get_current_user)):
     return service.delete_event(current_user.id, event_id)
 
-
+@app.post("/like")
+def like_post(like_data: sch.Like,
+              current_user: mdl.User = Depends(get_current_user),
+              service: PostRepository = Depends(get_post_repository)
+              ):
+    return service.like_post(like_data, current_user.id)
 
 
 # @app.post("/organizations")

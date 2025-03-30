@@ -12,22 +12,29 @@ from fastapi.security import OAuth2PasswordBearer, HTTPBearer
 import jwt
 from jose import JWTError, ExpiredSignatureError
 from typing import List
-
-
+from app.models.serializer import serialize_post
+from dotenv import load_dotenv
 
 import numpy as np
 
 import redis
 
+load_dotenv()
+
 r = redis.Redis(
-    host="redis-17009.c8.us-east-1-2.ec2.redns.redis-cloud.com",  
+    host=os.getenv("REDIS_HOST"),  
     port=17009,  
-    password="zd66qejs39E8MbD1QLx3QlLwtH3F7BEB",  # Add password if required
+    password=os.getenv("REDIS_PASSWORD"), 
     db=0,  
     decode_responses=True  
 )
 
-SECRET_KEY = "IP03O5Ekg91g5jw=="
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
+AWS_REGION = os.getenv("AWS_REGION")
+
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 security = HTTPBearer()
 
@@ -113,22 +120,17 @@ class PostRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_my_posts(self, user_id: int):
-        posts = self.db.query(mdl.Post).filter(mdl.Post.user_id == user_id).all()
-        
-        result = []
-        for post in posts:
-            images = self.db.query(mdl.PostImage.image).filter(mdl.PostImage.post_id == post.id).all()
-            image_urls = [img[0] for img in images]  
-            result.append({
-                "id": post.id,
-                "user_id": post.user_id,
-                "text": post.text,
-                "posted_at": post.posted_at,
-                "images":  image_urls
-            })
-        
-        return result
+    def get_posts(self, user_id):
+        posts = (
+            self.db.query(mdl.Post)
+            .options(joinedload(mdl.Post.user),
+                     joinedload(mdl.Post.post_images),
+                     joinedload(mdl.Post.likes))
+            .filter(mdl.Post.user_id == user_id)
+            .all()
+        )
+
+        return [serialize_post(post) for post in posts]
     
     def get_news(self, user_id: int, page: int = 1, limit: int = 5):
         connections = (
@@ -145,6 +147,9 @@ class PostRepository:
 
         news = (
             self.db.query(mdl.Post)
+            .options(joinedload(mdl.Post.user),
+                     joinedload(mdl.Post.post_images),
+                     joinedload(mdl.Post.likes))
             .filter(mdl.Post.user_id.in_(target_ids))
             .order_by(mdl.Post.posted_at.desc())
             .offset((page - 1) * limit)
@@ -155,19 +160,8 @@ class PostRepository:
         if not news:
             return "There are no news"
         
-        result = []
-        for post in news:
-            images = self.db.query(mdl.PostImage.image).filter(mdl.PostImage.post_id == post.id).all()
-            image_urls = [img[0] for img in images]  
-            result.append({
-                "id": post.id,
-                "user_id": post.user_id,
-                "text": post.text,
-                "posted_at": post.posted_at,
-                "images":  image_urls
-            })
 
-        return result
+        return [serialize_post(post) for post in news]
     
     def get_user_posts(self, user_id, current_user_id):
         connections = (
@@ -176,10 +170,10 @@ class PostRepository:
             .first()
         )
 
-        if not connections:
-            return HTTPException(status_code=401, detail="Unauthorized")
-
-        return self.get_my_posts(user_id)
+        if connections:
+            return self.get_posts(user_id)
+        
+        return HTTPException(status_code=401, detail="Unauthorized")
 
     
     def create_post(self, user_id: int, post_data: sch.PostCreate):
@@ -197,16 +191,40 @@ class PostRepository:
         self.db.delete(post)
 
         return post_id
-
     
-    def create_image(self, post_id: int, images: List[str] = None):
+    def create_image(self, post_id: int, user_id: int, images: List[str] = None):
+        post = self.db.query(mdl.Post).filter(mdl.Post.id == post_id).first()
+        
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not Found")
+        
+        if post.user_id != user_id:
+            raise HTTPException(status_code=403, detail="You can only upload images to your posts.")
+        
         for path in images:
             post_image = mdl.PostImage(post_id=post_id, image=path)
             self.db.add(post_image)
-        return "Images successfully add"
+        
+        self.db.commit()
+        return {"message": "Images upload successfully"}
 
     def get_post_images(self, post_id: int):
         return self.db.query(mdl.PostImage).filter(mdl.PostImage.post_id == post_id).all()
+    
+    def like_post(self, like_data: sch.Like, user_id):
+
+        like = self.db.query(mdl.Like).filter(mdl.Like.post_id == like_data.post_id, mdl.Like.user_id == user_id).first()
+
+        if like:
+            self.db.delete(like)
+            self.db.commit()
+            return {"message": "like was deleted"}
+        
+        new_like = mdl.Like(user_id = user_id, post_id = like_data.post_id)
+        self.db.add(new_like)
+        
+        return {"message": "like was added"}
+    
 
 
 class OrganizationRepository:
@@ -224,7 +242,7 @@ class OrganizationRepository:
 
     def get_organization_posts(self, organization_id):
         return (
-            self.db.query(mdl.Post).filter(mdl.Post.organization_id == organization_id).first()
+            self.db.query(mdl.Post).filter(mdl.Post.organization_id == organization_id).all()
         )
     
     def create_organization_posts(self, organization_id, president_id, post_data: sch.PostCreate):
@@ -306,9 +324,6 @@ class EventsRepository:
         self.db.refresh(event)
         return event
 
-
-        
-
     def get_events(self):
         events = self.db.query(mdl.Event).order_by(mdl.Event.date).all()
         return self.results(events)
@@ -365,6 +380,7 @@ def get_events_repository(db: Session = Depends(get_db)):
     return EventsRepository(db)
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
+
     auth_header = request.headers.get("Authorization")
     
     if auth_header and auth_header.startswith("Bearer "):
