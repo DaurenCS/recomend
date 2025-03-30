@@ -21,3 +21,4 @@ pydantic
 pyjwt
 python-jose
 python-multipart
+python-dotenv
