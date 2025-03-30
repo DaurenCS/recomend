@@ -6,25 +6,21 @@ from app.services.embeddingService import EmbeddingService, get_embedding_servic
 import app.models.models as mdl
 from fastapi import File, UploadFile
 import shutil
-import time
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
-UPLOAD_DIR = "uploads/"
-
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
 
 app = FastAPI()
 
 @app.get("/")
-def root():
+async def root():
     return {"message": "API is running"}
 
 @app.post("/generate_embedding/{user_id}")
-def generate_and_store_embedding(user_id: int, 
+async def generate_and_store_embedding(user_id: int, 
                                     service: EmbeddingService = Depends(get_embedding_service),
                                     user_repo: UserRepository = Depends(get_user_repository)):
     
@@ -43,36 +39,36 @@ def generate_and_store_embedding(user_id: int,
     return {"message": "Эмбеддинг сгенерирован и сохранён", "user_id": user_id}
 
 @app.get("/recomendation/{user_id}")
-def get_recomendation_user(user_id: int, top_k: int = 5 ,  service: RecomendationRepository = Depends(get_recomendation_repository)):
+async def get_recomendation_user(user_id: int, top_k: int = 5 ,  service: RecomendationRepository = Depends(get_recomendation_repository)):
     recomendation_users = service.get_recomendations(user_id, top_k)
     return  [sch.User.model_validate(user) for user in recomendation_users]
 
 @app.get("/users")
-def get_users(service: UserRepository = Depends(get_user_repository)):
+async def get_users(service: UserRepository = Depends(get_user_repository)):
     users = service.get_users()
     return [sch.User.model_validate(user) for user in users]
 
 @app.get("/users/{user_id}")
-def get_user(user_id: int, service: UserRepository = Depends(get_user_repository)):
+async def get_user(user_id: int, service: UserRepository = Depends(get_user_repository)):
     user = service.get_user(user_id)
     return sch.User.model_validate(user)
 
 @app.get("/users/{user_id}/posts")
-def get_user_posts(user_id: int, service: PostRepository = Depends(get_post_repository), 
+async def get_user_posts(user_id: int, service: PostRepository = Depends(get_post_repository), 
                    current_user: mdl.User = Depends(get_current_user)):
     
     return service.get_user_posts(user_id, current_user.id)
 
 
 @app.get('/news')
-def get_news(current_user: mdl.User = Depends(get_current_user), 
+async def get_news(current_user: mdl.User = Depends(get_current_user), 
             service: PostRepository = Depends(get_post_repository), page: int = 1, limit: int = 5):
     news = service.get_news(current_user.id, page, limit)
     
     return news
 
 @app.get("/posts")
-def get_my_posts(current_user: mdl.User = Depends(get_current_user),
+async def get_my_posts(current_user: mdl.User = Depends(get_current_user),
                  service: PostRepository = Depends(get_post_repository)):
     posts = service.get_posts(current_user.id)
     return posts
@@ -92,19 +88,13 @@ async def delete_post(post_id: int,
     return service.delete_post(current_user.id, post_id)
     
 @app.post("/posts/{post_id}/upload")
-async def upload_file(post_id: int, images: List[UploadFile] = File(...),
-                      curren_user: mdl.User = Depends(get_current_user),
-                      service: PostRepository = Depends(get_post_repository)):
-    image_paths = []
-    for image in images:
-        timestamp = int(time.time())  
-        filename = f"{timestamp}_{image.filename}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        image_paths.append(file_path)
-    return service.create_image(post_id, curren_user.id,image_paths,)
-
+async def upload_file(
+    post_id: int, 
+    images: List[UploadFile] = File(...),
+    curren_user: mdl.User = Depends(get_current_user),
+    service: PostRepository = Depends(get_post_repository)
+):
+    return await service.create_image(post_id, curren_user.id, images)
 
     
 @app.get("/posts/{post_id}/images", response_model=List[sch.PostImage])

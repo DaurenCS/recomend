@@ -6,8 +6,8 @@ def serialize_post(post):
         "user": {
             "id": post.user.id,
             "username": post.user.username,
-            "image_uuid": post.user.image_uuid
+            "image_uuid": f"https://auth-wytb.onrender.com/api/v1/image/{post.user.image_uuid}"
         },
-        "images": [{"image": f"https://recomend-iuos.onrender.com/{img.image}"} for img in (post.post_images or [])],
+        "images": [{"image": img.image} for img in (post.post_images or [])],
         "likes" : len(post.likes) or 0
     }

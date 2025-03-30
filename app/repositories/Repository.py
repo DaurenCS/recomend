@@ -6,15 +6,20 @@ import pickle
 import os
 import faiss
 from collections import defaultdict
+from fastapi import File, UploadFile
 import app.models.schemas as sch
 import random
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer
 import jwt
+from concurrent.futures import ThreadPoolExecutor
+import time
 from jose import JWTError, ExpiredSignatureError
 from typing import List
+from botocore.exceptions import NoCredentialsError
 from app.models.serializer import serialize_post
 from dotenv import load_dotenv
-
+import boto3
+import asyncio
 import numpy as np
 
 import redis
@@ -29,10 +34,19 @@ r = redis.Redis(
     decode_responses=True  
 )
 
+
 AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
 AWS_REGION = os.getenv("AWS_REGION")
+
+
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY,
+    region_name=AWS_REGION,
+)
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
@@ -40,12 +54,18 @@ security = HTTPBearer()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+
+
 embedding_dim = 128
 faiss_index_file = "faiss.index"
 if os.path.exists(faiss_index_file):
     faiss_index = faiss.read_index(faiss_index_file)
 else:
     faiss_index = faiss.IndexFlatL2(embedding_dim)
+
+
+#async add images
+executor = ThreadPoolExecutor(max_workers=5) 
 
 class UserRepository:
     def __init__(self, db: Session):
@@ -192,21 +212,53 @@ class PostRepository:
 
         return post_id
     
-    def create_image(self, post_id: int, user_id: int, images: List[str] = None):
-        post = self.db.query(mdl.Post).filter(mdl.Post.id == post_id).first()
-        
+    async def create_image(self, post_id: int, user_id: int, images: List[UploadFile] = None):
+        post = self.db.query(mdl.Post).options(joinedload(mdl.Post.organization)).filter(mdl.Post.id == post_id).first()
+
         if not post:
             raise HTTPException(status_code=404, detail="Post not Found")
         
-        if post.user_id != user_id:
+        if post.user_id != user_id and post.organization.president_id != user_id:
             raise HTTPException(status_code=403, detail="You can only upload images to your posts.")
-        
-        for path in images:
-            post_image = mdl.PostImage(post_id=post_id, image=path)
-            self.db.add(post_image)
-        
-        self.db.commit()
-        return {"message": "Images upload successfully"}
+    
+        image_urls = []
+
+        try:
+            loop = asyncio.get_event_loop()
+            
+            async def upload_image(image: UploadFile):
+                timestamp = int(time.time())  
+                filename = f"{timestamp}_{image.filename}"
+                s3_path = f"posts/{post_id}/{filename}"
+
+                await loop.run_in_executor(
+                    executor, 
+                    lambda: s3_client.upload_fileobj(
+                        image.file, AWS_BUCKET_NAME, s3_path, 
+                        ExtraArgs={"ContentType": image.content_type}
+                    )
+                )
+
+                return f"https://{AWS_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{s3_path}", s3_path
+
+            image_urls = await asyncio.gather(*[upload_image(img) for img in images])    
+
+            for url, _ in image_urls:
+                post_image = mdl.PostImage(post_id=post_id, image=url)
+                self.db.add(post_image)
+
+            self.db.commit()
+            return {"message": "Images uploaded successfully", "images": [url for url, _ in image_urls]}
+
+        except Exception as e:
+            self.db.rollback()
+            for _, s3_path in image_urls:
+                try:
+                    s3_client.delete_object(Bucket=AWS_BUCKET_NAME, Key=s3_path)
+                except Exception as delete_error:
+                    print(f"Failed to delete {s3_path}: {delete_error}")
+
+            raise HTTPException(status_code=500, detail=str(e))
 
     def get_post_images(self, post_id: int):
         return self.db.query(mdl.PostImage).filter(mdl.PostImage.post_id == post_id).all()

@@ -22,3 +22,4 @@ pyjwt
 python-jose
 python-multipart
 python-dotenv
+boto3
