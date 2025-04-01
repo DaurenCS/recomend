@@ -21,10 +21,12 @@ class User(Base):
     bio: Mapped[str] = mapped_column(String, nullable=True)
     birthday =  mapped_column(DateTime)
     image_uuid: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True, default=uuid.uuid4)
+    
     posts: Mapped['Post'] = relationship(back_populates='user', cascade="all, delete-orphan")
     organization: Mapped['Organization'] = relationship(back_populates='president')
     likes: Mapped['Like'] = relationship(back_populates="user", cascade="all, delete-orphan")
-    # connection: Mapped['Connection'] = relationship(back_populates='user')
+    tags: Mapped[List['Tag']] = relationship(secondary="user_tags", backref="users")
+
 
     @property
     def age(self) -> int:
@@ -119,5 +121,18 @@ class Like(Base):
     post: Mapped["Post"] = relationship(back_populates="likes")
     
     __table_args__ = (UniqueConstraint("user_id", "post_id", name="unique_user_post_like"),)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+
+class UserTag(Base):
+    __tablename__ = "user_tags"
+    
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id"), primary_key=True)
 
 

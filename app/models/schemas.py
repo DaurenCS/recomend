@@ -73,3 +73,11 @@ class EventResponse(EventCreate):
 
 class Like(Base):
     post_id: int
+
+class Tag(Base):
+    id: int
+    name: str
+
+class createUserTags(Base):
+    user_id: int
+    tags_id: List[int] 

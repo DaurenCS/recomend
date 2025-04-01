@@ -147,6 +147,7 @@ class PostRepository:
                      joinedload(mdl.Post.post_images),
                      joinedload(mdl.Post.likes))
             .filter(mdl.Post.user_id == user_id)
+            .order_by(mdl.Post.id.desc())
             .all()
         )
 
@@ -398,7 +399,29 @@ class EventsRepository:
         
         return HTTPException(status_code=401, detail="Unauthorized") 
 
-        
+class TagsRepository:
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def get_tags(self):
+        return self.db.query(mdl.Tag).all()
+    
+    def create_user_tags(self, tags_data: sch.createUserTags):
+        for tag_id in tags_data.tags_id:
+            userTag = mdl.UserTag(user_id = tags_data.user_id,
+                                  tag_id = tag_id)  
+            self.db.add(userTag)
+        return {"message": "Tags was added"}
+    
+    def delete_user_tags(self, tags_data: sch.createUserTags):
+        for tag_id in tags_data.tags_id:
+            userTag = self.db.query(mdl.UserTag).filter(mdl.UserTag.tag_id == tag_id, mdl.UserTag.user_id == tags_data.user_id).first()
+            if not userTag:
+                raise HTTPException(status_code=404, detail="UserTag not Found")
+            self.db.delete(userTag)
+
+        return {"message": "Tags was deleted"}
+
     
 
 
@@ -430,6 +453,9 @@ def get_organization_repository(db: Session = Depends(get_db)):
 
 def get_events_repository(db: Session = Depends(get_db)):
     return EventsRepository(db)
+
+def get_tags_repository(db: Session = Depends(get_db)):
+    return TagsRepository(db)
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
 

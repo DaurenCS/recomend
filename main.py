@@ -166,6 +166,20 @@ def like_post(like_data: sch.Like,
               ):
     return service.like_post(like_data, current_user.id)
 
+@app.post("/tags")
+def create_user_tags(tags_data: sch.createUserTags,
+                     service: TagsRepository = Depends(get_tags_repository)):
+    return service.create_user_tags(tags_data)
+
+@app.get("/tags")
+def get_tags(service: TagsRepository = Depends(get_tags_repository)):
+    return service.get_tags()
+
+@app.delete("/tags")
+def delete_tags(tags_data: sch.createUserTags,
+                service: TagsRepository = Depends(get_tags_repository) ):
+    return service.delete_user_tags(tags_data)
+
 
 # @app.post("/organizations")
 # async def create_organization(organization_data: sch.CreateOrganization, 
