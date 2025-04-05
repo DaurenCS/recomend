@@ -16,7 +16,7 @@ import time
 from jose import JWTError, ExpiredSignatureError
 from typing import List
 from botocore.exceptions import NoCredentialsError
-from app.models.serializer import serialize_post
+from app.models.serializer import *
 from dotenv import load_dotenv
 import boto3
 import asyncio
@@ -151,7 +151,7 @@ class PostRepository:
             .all()
         )
 
-        return [serialize_post(post) for post in posts]
+        return [serialize_post(post, user_id) for post in posts]
     
     def get_news(self, user_id: int, page: int = 1, limit: int = 5):
         connections = (
@@ -182,7 +182,7 @@ class PostRepository:
             return "There are no news"
         
 
-        return [serialize_post(post) for post in news]
+        return [serialize_post(post, user_id) for post in news]
     
     def get_user_posts(self, user_id, current_user_id):
         connections = (
@@ -290,13 +290,15 @@ class OrganizationRepository:
     def get_organization(self, organization_id: int):
         return self.db.query(mdl.Organization).filter(mdl.Organization.id == organization_id).first()
     
-    def get_organizations_posts(self):
-        return self.db.query(mdl.Post).filter(mdl.Post.organization_id.isnot(None)).all()
+    def get_organizations_posts(self, user_id):
+        posts = self.db.query(mdl.Post).filter(mdl.Post.organization_id.isnot(None)).all()
+        return [serialize_post(post, user_id) for post in posts]
 
-    def get_organization_posts(self, organization_id):
-        return (
-            self.db.query(mdl.Post).filter(mdl.Post.organization_id == organization_id).all()
-        )
+    def get_organization_posts(self, organization_id, user_id):
+       
+        posts = self.db.query(mdl.Post).filter(mdl.Post.organization_id == organization_id).all()
+        return [serialize_post(post, user_id) for post in posts]
+        
     
     def create_organization_posts(self, organization_id, president_id, post_data: sch.PostCreate):
         organization = self.db.query(mdl.Organization).filter(mdl.Organization.id == organization_id).first()
@@ -349,7 +351,7 @@ class EventsRepository:
 
         for event in events:
             event_day = event.date.strftime("%Y-%m-%d") 
-            grouped_events[event_day].append(event)
+            grouped_events[event_day].append(serialize_event(event))
         return grouped_events
     
     def create_event(self, president_id, organization_id, event_data: sch.EventCreate):
@@ -366,7 +368,6 @@ class EventsRepository:
             organization_id=organization_id,
             date=event_data.date,
             location=event_data.location,
-            image=event_data.image,
             description=event_data.description,
             price=event_data.price,
             additional=event_data.additional
@@ -376,7 +377,56 @@ class EventsRepository:
         self.db.commit()
         self.db.refresh(event)
         return event
+    
+    async def create_image(self, event_id: int, user_id: int, images: List[UploadFile] = None):
+        event = self.db.query(mdl.Event).options(joinedload(mdl.Event.organization)).filter(mdl.Event.id == event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not Found")
+        
+        if event.organization.president_id != user_id:
+            raise HTTPException(status_code=403, detail="You can only upload images to your posts.")
+    
+        image_urls = []
 
+        try:
+            loop = asyncio.get_event_loop()
+            
+            async def upload_image(image: UploadFile):
+                timestamp = int(time.time())  
+                filename = f"{timestamp}_{image.filename}"
+                s3_path = f"events/{event_id}/{filename}"
+
+                await loop.run_in_executor(
+                    executor, 
+                    lambda: s3_client.upload_fileobj(
+                        image.file, AWS_BUCKET_NAME, s3_path, 
+                        ExtraArgs={"ContentType": image.content_type}
+                    )
+                )
+
+                return f"https://{AWS_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{s3_path}", s3_path
+
+            image_urls = await asyncio.gather(*[upload_image(img) for img in images])    
+
+            
+            return {"message":[url for url, _ in image_urls]}
+
+        except Exception as e:
+            self.db.rollback()
+            for _, s3_path in image_urls:
+                try:
+                    s3_client.delete_object(Bucket=AWS_BUCKET_NAME, Key=s3_path)
+                except Exception as delete_error:
+                    print(f"Failed to delete {s3_path}: {delete_error}")
+
+            raise HTTPException(status_code=500, detail=str(e))
+
+    def get_event(self, event_id):
+        event = self.db.query(mdl.Event).filter(mdl.Event.id == event_id).first()
+        if not event: 
+            raise HTTPException(status_code=404, detail="Event not Found")
+        return serialize_event(event)
+    
     def get_events(self):
         events = self.db.query(mdl.Event).order_by(mdl.Event.date).all()
         return self.results(events)

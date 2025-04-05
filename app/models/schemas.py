@@ -62,7 +62,6 @@ class EventCreate(Base):
     organization_id: int
     date: datetime
     location: str
-    image: Optional[str] = None
     description: str
     price: int
     additional: str
